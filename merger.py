@@ -7,6 +7,7 @@ from datetime import datetime
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, 
                              QLineEdit, QProgressBar, QMessageBox, QListWidget, QListWidgetItem, QAbstractItemView)
 from PyQt5.QtCore import QThread, pyqtSignal, QTimer, QTime
+from PyQt5.QtGui import QDragEnterEvent, QDropEvent
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 
@@ -81,7 +82,7 @@ class App(QWidget):
 
     def initUI(self):
         self.setWindowTitle(self.title)
-
+        self.setAcceptDrops(True)
         layout = QVBoxLayout()
 
         self.files_label = QLabel('Audio Files:')
@@ -239,7 +240,18 @@ class App(QWidget):
         }
         with open(self.settings_file, 'w', encoding='utf-8') as f:
             json.dump(settings, f, ensure_ascii=False, indent=4)
+            
+    def dragEnterEvent(self, event: QDragEnterEvent):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
 
+    def dropEvent(self, event: QDropEvent):
+        for url in event.mimeData().urls():
+            if url.isLocalFile():
+                file_path = url.toLocalFile()
+                if file_path.endswith(('.mp3', '.wav')):
+                    self.files_list.addItem(QListWidgetItem(file_path))
+        self.update_track_count()
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = App()
