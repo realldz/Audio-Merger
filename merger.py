@@ -2,10 +2,11 @@ import sys
 import os
 import json
 import random
+import music_tag
 from datetime import datetime
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, 
                              QLineEdit, QProgressBar, QMessageBox, QListWidget, QListWidgetItem, QAbstractItemView)
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal, QTimer, QTime
 from pydub import AudioSegment
 from pydub.silence import detect_nonsilent
 
@@ -41,16 +42,17 @@ class MergeMP3Thread(QThread):
             audio = remove_silence(audio, silence_thresh=self.silence_thresh, chunk_size=self.chunk_size)
             combined += audio
 
-            metadata = audio.tags
-            title = metadata.get('title') if metadata else None
-            display_name = title if title else os.path.basename(audio_file)
+            metadata = music_tag.load_file(audio_file)
+            
+            title = metadata['title'] if metadata['title'] else None
+            display_name = title if title else os.path.basename(audio_file).title()[:-4]
 
             log_entries.append(f"{self.format_time(current_time)} {display_name}")
             current_time += len(audio) // 1000
 
             self.progress.emit(int((i + 1) / total_files * 99))
 
-        combined.export(self.output_file, format='mp3')
+        combined.export(self.output_file, format='mp3', bitrate='256k')
 
         if self.log_file:
             with open(self.log_file, 'w', encoding='utf-8') as f:
@@ -125,19 +127,25 @@ class App(QWidget):
 
         self.log_file_label = QLabel('Log File Name (optional):')
         self.log_file_name = QLineEdit(self)
-
+        
         log_layout = QHBoxLayout()
         log_layout.addWidget(self.log_file_label)
         log_layout.addWidget(self.log_file_name)
         layout.addLayout(log_layout)
-
+        
         self.progress_bar = QProgressBar(self)
         layout.addWidget(self.progress_bar)
 
+        self.time_label = QLabel('Time Elapsed: 00:00:00')
+        layout.addWidget(self.time_label)
+
         self.merge_button = QPushButton('Merge Audio', self)
         self.merge_button.clicked.connect(self.merge_audio)
-
         layout.addWidget(self.merge_button)
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_timer)
+        self.start_time = QTime(0, 0, 0)
 
         self.setLayout(layout)
         self.load_settings()
@@ -168,19 +176,28 @@ class App(QWidget):
         folder = QFileDialog.getExistingDirectory(self, 'Select Output Folder')
         if folder:
             self.output_path.setText(folder)
-
+            
+    def update_timer(self):
+        elapsed_time = self.start_time.addSecs(1)
+        self.start_time = elapsed_time
+        # cpu_usage = psutil.cpu_percent(interval=1)
+        # mem_usage = psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024)  # Convert to MB
+        self.time_label.setText(f'Time Elapsed: {elapsed_time.toString("hh:mm:ss")}')
+        
     def merge_audio(self):
         audio_files = [self.files_list.item(i).text() for i in range(self.files_list.count())]
         output_folder = self.output_path.text() or os.getcwd()
         output_file_name = self.output_file_name.text() or datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         log_file_name = self.log_file_name.text()
-
+        
         if audio_files:
+            self.start_time = QTime(0, 0, 0)
             output_file = os.path.join(output_folder, output_file_name + '.mp3')
             log_file = os.path.join(output_folder, log_file_name + '.txt') if log_file_name else None
             self.thread = MergeMP3Thread(audio_files, output_file, log_file=log_file)
             self.thread.progress.connect(self.update_progress)
             self.thread.finished.connect(self.on_merge_finished)
+            self.timer.start(1000)  # Update every second
             self.thread.start()
             self.toggle_ui(False)
         else:
@@ -190,6 +207,7 @@ class App(QWidget):
         self.progress_bar.setValue(value)
 
     def on_merge_finished(self):
+        self.timer.stop()
         QMessageBox.information(self, 'Information', 'Audio files have been merged successfully!')
         self.toggle_ui(True)
         self.save_settings()
