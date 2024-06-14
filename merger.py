@@ -35,9 +35,9 @@ class MergeMP3Thread(QThread):
         combined = AudioSegment.empty()
         total_files = len(self.audio_files)
         current_time = 0
+        self.progress.emit(0)
 
         log_entries = []
-
         for i, audio_file in enumerate(self.audio_files):
             audio = AudioSegment.from_file(audio_file)
             audio = remove_silence(audio, silence_thresh=self.silence_thresh, chunk_size=self.chunk_size)
