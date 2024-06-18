@@ -3,6 +3,7 @@ import os
 import json
 import random
 import music_tag
+import math
 from datetime import datetime
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, 
                              QLineEdit, QProgressBar, QMessageBox, QListWidget, QListWidgetItem, QAbstractItemView)
@@ -48,8 +49,8 @@ class MergeMP3Thread(QThread):
             title = metadata['title'] if metadata['title'] else None
             display_name = title if title else os.path.basename(audio_file).title()[:-4]
 
-            log_entries.append(f"{self.format_time(current_time)} {display_name}")
-            current_time += len(audio) // 1000
+            log_entries.append(f"{self.format_time(math.ceil(current_time / 1000))} {display_name}")
+            current_time += len(audio)
 
             self.progress.emit(int((i + 1) / total_files * 99))
 
