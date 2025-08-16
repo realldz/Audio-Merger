@@ -1,8 +1,9 @@
 from functools import partial
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, 
-                             QLineEdit, QProgressBar, QMessageBox, QListWidget, QAbstractItemView, QListWidgetItem)
-from PyQt5.QtCore import QTimer, QTime
-from PyQt5.QtGui import QDragEnterEvent, QDropEvent
+                             QLineEdit, QProgressBar, QMessageBox, QListWidget, QAbstractItemView, QListWidgetItem,
+                             QDoubleSpinBox, QSpinBox, QFrame)
+from PyQt5.QtCore import QTimer, QTime, Qt
+from PyQt5.QtGui import QDragEnterEvent, QDropEvent, QFont
 from core.controller import Controller
 from ui.track_widget import TrackWidget
 
@@ -17,8 +18,10 @@ class MainWindow(QWidget):
     def initUI(self):
         self.setWindowTitle(self.title)
         self.setAcceptDrops(True)
-        layout = QVBoxLayout()
+        main_layout = QVBoxLayout()
 
+        # --- File List Section ---
+        files_layout = QVBoxLayout()
         self.files_label = QLabel('Audio Files:')
         self.files_list = QListWidget(self)
         self.files_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -29,60 +32,99 @@ class MainWindow(QWidget):
         self.remove_files_button.clicked.connect(self.remove_files)
         self.shuffle_files_button = QPushButton('Shuffle', self)
         self.shuffle_files_button.clicked.connect(self.shuffle_files)
-
-        files_layout = QVBoxLayout()
         files_layout.addWidget(self.files_label)
         files_layout.addWidget(self.files_list)
-        files_layout.addWidget(self.add_files_button)
-        files_layout.addWidget(self.remove_files_button)
-        files_layout.addWidget(self.shuffle_files_button)
-        layout.addLayout(files_layout)
+        files_button_layout = QHBoxLayout()
+        files_button_layout.addWidget(self.add_files_button)
+        files_button_layout.addWidget(self.remove_files_button)
+        files_button_layout.addWidget(self.shuffle_files_button)
+        files_layout.addLayout(files_button_layout)
+        main_layout.addLayout(files_layout)
 
         self.track_count_label = QLabel(f'Number of track: {self.files_list.count()}')
-        layout.addWidget(self.track_count_label)
+        main_layout.addWidget(self.track_count_label)
 
+        # --- Output Section ---
+        output_group_layout = QVBoxLayout()
+        output_folder_layout = QHBoxLayout()
         self.output_label = QLabel('Output Folder:')
         self.output_path = QLineEdit(self)
         self.output_button = QPushButton('Browse', self)
         self.output_button.clicked.connect(self.browse_output_folder)
+        output_folder_layout.addWidget(self.output_label)
+        output_folder_layout.addWidget(self.output_path)
+        output_folder_layout.addWidget(self.output_button)
+        output_group_layout.addLayout(output_folder_layout)
 
-        output_layout = QHBoxLayout()
-        output_layout.addWidget(self.output_label)
-        output_layout.addWidget(self.output_path)
-        output_layout.addWidget(self.output_button)
-        layout.addLayout(output_layout)
-
+        output_file_layout = QHBoxLayout()
         self.output_file_label = QLabel('Output File Name:')
         self.output_file_name = QLineEdit(self)
+        output_file_layout.addWidget(self.output_file_label)
+        output_file_layout.addWidget(self.output_file_name)
+        output_group_layout.addLayout(output_file_layout)
 
-        file_layout = QHBoxLayout()
-        file_layout.addWidget(self.output_file_label)
-        file_layout.addWidget(self.output_file_name)
-        layout.addLayout(file_layout)
-
+        log_file_layout = QHBoxLayout()
         self.log_file_label = QLabel('Log File Name (optional):')
         self.log_file_name = QLineEdit(self)
-        
-        log_layout = QHBoxLayout()
-        log_layout.addWidget(self.log_file_label)
-        log_layout.addWidget(self.log_file_name)
-        layout.addLayout(log_layout)
-        
+        log_file_layout.addWidget(self.log_file_label)
+        log_file_layout.addWidget(self.log_file_name)
+        output_group_layout.addLayout(log_file_layout)
+        main_layout.addLayout(output_group_layout)
+
+        # --- Line Separator ---
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        main_layout.addWidget(line)
+
+        # --- Silence Removal Section ---
+        settings_layout = QHBoxLayout()
+        # Silence Threshold
+        thresh_layout = QVBoxLayout()
+        self.silence_thresh_label = QLabel("Silence Threshold (dBFS):")
+        self.silence_thresh_input = QDoubleSpinBox()
+        self.silence_thresh_input.setRange(-100.0, 0.0)
+        self.silence_thresh_input.setSingleStep(1.0)
+        thresh_desc = QLabel("Max volume to be considered silent.")
+        thresh_desc.setStyleSheet("color: gray;")
+        thresh_layout.addWidget(self.silence_thresh_label)
+        thresh_layout.addWidget(self.silence_thresh_input)
+        thresh_layout.addWidget(thresh_desc)
+        thresh_layout.addStretch()
+
+        # Chunk Size
+        chunk_layout = QVBoxLayout()
+        self.chunk_size_label = QLabel("Chunk Size (ms):")
+        self.chunk_size_input = QSpinBox()
+        self.chunk_size_input.setRange(1, 1000)
+        chunk_desc = QLabel("Step size for silence detection. Smaller is more precise.")
+        chunk_desc.setStyleSheet("color: gray;")
+        chunk_layout.addWidget(self.chunk_size_label)
+        chunk_layout.addWidget(self.chunk_size_input)
+        chunk_layout.addWidget(chunk_desc)
+        chunk_layout.addStretch()
+
+        settings_layout.addLayout(thresh_layout)
+        settings_layout.addLayout(chunk_layout)
+        main_layout.addLayout(settings_layout)
+
+        # --- Progress and Merge Section ---
+        main_layout.addStretch()
         self.progress_bar = QProgressBar(self)
-        layout.addWidget(self.progress_bar)
+        main_layout.addWidget(self.progress_bar)
 
         self.time_label = QLabel('Time Elapsed: 00:00:00')
-        layout.addWidget(self.time_label)
+        main_layout.addWidget(self.time_label)
 
         self.merge_button = QPushButton('Merge Audio', self)
         self.merge_button.clicked.connect(self.merge_audio)
-        layout.addWidget(self.merge_button)
+        main_layout.addWidget(self.merge_button)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_timer)
         self.start_time = QTime(0, 0, 0)
 
-        self.setLayout(layout)
+        self.setLayout(main_layout)
         self.controller.load_settings()
         self.show()
 
@@ -92,7 +134,6 @@ class MainWindow(QWidget):
             list_item = QListWidgetItem(self.files_list)
             track_widget = TrackWidget(audio_file.path, audio_file.is_pinned)
             
-            # Connect the pin toggle signal to the controller
             track_widget.pin_toggled.connect(partial(self.controller.toggle_pin_status, i))
             
             list_item.setSizeHint(track_widget.sizeHint())

@@ -4,9 +4,9 @@ import music_tag
 from datetime import datetime
 from PyQt5.QtCore import QTime
 from PyQt5.QtWidgets import QMessageBox
-from core.models import AudioFile
+from core.models import AudioFile, Settings
 from services.audio_service import MergeMP3Thread
-from services.settings_service import load_settings, save_settings
+from services import settings_service
 
 class Controller:
     def __init__(self, view):
@@ -14,8 +14,6 @@ class Controller:
         self.audio_files = []
 
     def sort_files(self):
-        # Sorts the list to bring pinned items to the top.
-        # The key `not af.is_pinned` makes False (pinned) come before True (not pinned).
         self.audio_files.sort(key=lambda af: not af.is_pinned)
 
     def add_files(self, files):
@@ -23,7 +21,6 @@ class Controller:
             metadata = music_tag.load_file(file)
             title = metadata['title'] if metadata['title'] else None
             display_name = title if title else os.path.basename(file).title()[:-4]
-            # New files are not pinned by default
             audio_file = AudioFile(file, title, display_name, is_pinned=False)
             self.audio_files.append(audio_file)
         self.sort_files()
@@ -59,11 +56,18 @@ class Controller:
         output_file_name = self.view.output_file_name.text() or datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         log_file_name = self.view.log_file_name.text()
         
+        silence_thresh = self.view.silence_thresh_input.value()
+        chunk_size = self.view.chunk_size_input.value()
+
         if self.audio_files:
             self.view.start_time = QTime(0, 0, 0)
             output_file = os.path.join(output_folder, output_file_name + '.mp3')
             log_file = os.path.join(output_folder, log_file_name + '.txt') if log_file_name else None
-            self.view.thread = MergeMP3Thread(self.audio_files, output_file, log_file=log_file)
+            self.view.thread = MergeMP3Thread(self.audio_files, 
+                                             output_file, 
+                                             silence_thresh=silence_thresh, 
+                                             chunk_size=chunk_size, 
+                                             log_file=log_file)
             self.view.thread.progress.connect(self.view.update_progress)
             self.view.thread.finished.connect(self.view.on_merge_finished)
             self.view.timer.start(1000)
@@ -73,15 +77,19 @@ class Controller:
             QMessageBox.warning(self.view, 'Warning', 'Please add at least one audio file.')
 
     def load_settings(self):
-        settings = load_settings()
-        self.view.output_path.setText(settings.get('output_folder', ''))
-        self.view.output_file_name.setText(settings.get('output_file', ''))
-        self.view.log_file_name.setText(settings.get('log_file', ''))
+        settings = settings_service.load_settings()
+        self.view.output_path.setText(settings.output_folder)
+        self.view.output_file_name.setText(settings.output_file)
+        self.view.log_file_name.setText(settings.log_file)
+        self.view.silence_thresh_input.setValue(settings.silence_thresh)
+        self.view.chunk_size_input.setValue(settings.chunk_size)
 
     def save_settings(self):
-        settings = {
-            'output_folder': self.view.output_path.text(),
-            'output_file': self.view.output_file_name.text(),
-            'log_file': self.view.log_file_name.text()
-        }
-        save_settings(settings)
+        settings = Settings(
+            output_folder=self.view.output_path.text(),
+            output_file=self.view.output_file_name.text(),
+            log_file=self.view.log_file_name.text(),
+            silence_thresh=self.view.silence_thresh_input.value(),
+            chunk_size=self.view.chunk_size_input.value()
+        )
+        settings_service.save_settings(settings)
