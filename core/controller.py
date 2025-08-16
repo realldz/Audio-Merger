@@ -61,10 +61,9 @@ class Controller:
         
         if self.audio_files:
             self.view.start_time = QTime(0, 0, 0)
-            file_paths_to_merge = [af.path for af in self.audio_files]
             output_file = os.path.join(output_folder, output_file_name + '.mp3')
             log_file = os.path.join(output_folder, log_file_name + '.txt') if log_file_name else None
-            self.view.thread = MergeMP3Thread(file_paths_to_merge, output_file, log_file=log_file)
+            self.view.thread = MergeMP3Thread(self.audio_files, output_file, log_file=log_file)
             self.view.thread.progress.connect(self.view.update_progress)
             self.view.thread.finished.connect(self.view.on_merge_finished)
             self.view.timer.start(1000)
