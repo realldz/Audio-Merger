@@ -1,12 +1,16 @@
 import os
 import json
 import dataclasses
+import logging
 from core.models import Settings, LogSettings
 
+logger = logging.getLogger(__name__)
 SETTINGS_FILE = 'settings.json'
 
 def load_settings() -> Settings:
+    logger.info(f"Loading settings from {SETTINGS_FILE}")
     if not os.path.exists(SETTINGS_FILE):
+        logger.warning(f"Settings file not found at {SETTINGS_FILE}. Returning default settings.")
         return Settings() # Return default settings if file doesn't exist
 
     with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
@@ -25,12 +29,19 @@ def load_settings() -> Settings:
             filtered_settings_data = {k: v for k, v in data.items() if k in known_settings_fields}
             
             # Create Settings object, passing the created LogSettings object
+            logger.info("Settings loaded successfully.")
             return Settings(log=log_settings, **filtered_settings_data)
 
-        except (json.JSONDecodeError, TypeError):
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.error(f"Failed to load settings from {SETTINGS_FILE}: {e}. Returning default settings.", exc_info=True)
             return Settings() # Return default settings if file is corrupted or not a dict
 
 def save_settings(settings: Settings):
-    with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
-        settings_dict = dataclasses.asdict(settings)
-        json.dump(settings_dict, f, ensure_ascii=False, indent=4)
+    logger.info(f"Saving settings to {SETTINGS_FILE}")
+    try:
+        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+            settings_dict = dataclasses.asdict(settings)
+            json.dump(settings_dict, f, ensure_ascii=False, indent=4)
+        logger.info("Settings saved successfully.")
+    except Exception as e:
+        logger.error(f"Failed to save settings to {SETTINGS_FILE}: {e}", exc_info=True)

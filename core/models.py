@@ -34,7 +34,7 @@ class Settings:
     output_folder: str = ''
     output_file: str = ''
     log_file: str = ''
-    silence_thresh: float = -50.0
+    silence_thresh: float = -60.0
     chunk_size: int = 10
     gemini_api_key: str = ''
     gemini_model_name: str = 'gemini-1.5-flash-latest'

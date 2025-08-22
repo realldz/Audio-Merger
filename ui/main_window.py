@@ -1,4 +1,5 @@
 from functools import partial
+from math import log
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel, QFileDialog, 
                              QLineEdit, QProgressBar, QMessageBox, QListWidget, QAbstractItemView, QListWidgetItem,
                              QDoubleSpinBox, QSpinBox, QFrame, QTextEdit, QCheckBox, QComboBox, QSizePolicy)
@@ -13,6 +14,7 @@ class MainWindow(QWidget):
         super().__init__()
         self.title = 'Audio Merger'
         self.controller = Controller(self)
+        
         self.initUI()
 
     def initUI(self):

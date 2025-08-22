@@ -1,12 +1,17 @@
+import logging
 import google.generativeai as genai
 from PyQt5.QtCore import QThread, pyqtSignal
 from core.models import DEFAULT_AI_PROMPT
+
+logger = logging.getLogger(__name__)
 
 def fetch_available_models(api_key: str) -> tuple[bool, list[str] | str]:
     """
     Fetches a list of available generative models from the Google AI API.
     """
+    logger.info("Fetching available AI models.")
     if not api_key:
+        logger.error("Gemini API Key is missing.")
         return False, "Error: Gemini API Key is missing."
     
     try:
@@ -15,8 +20,10 @@ def fetch_available_models(api_key: str) -> tuple[bool, list[str] | str]:
         for m in genai.list_models():
             if 'generateContent' in m.supported_generation_methods:
                 model_list.append(m.name)
+        logger.info(f"Successfully fetched {len(model_list)} models.")
         return True, sorted(model_list)
     except Exception as e:
+        logger.error(f"Could not fetch models: {e}", exc_info=True)
         return False, f"Could not fetch models: {str(e)}"
 
 class FetchModelsThread(QThread):
@@ -36,10 +43,13 @@ def standardize_log(api_key: str, model_name: str, log_content: str, is_advanced
     """
     Standardizes the log content using the Gemini API.
     """
+    logger.info(f"Standardizing log with model: {model_name}")
     if not api_key:
+        logger.error("Gemini API Key is missing for standardization.")
         return False, "Error: Gemini API Key is missing. Please provide it in the settings."
     
     if not model_name:
+        logger.error("Gemini Model Name is not specified for standardization.")
         return False, "Error: Gemini Model Name is not specified."
 
     try:
@@ -47,20 +57,26 @@ def standardize_log(api_key: str, model_name: str, log_content: str, is_advanced
         model = genai.GenerativeModel(model_name)
 
         if is_advanced:
+            logger.debug("Using advanced prompt mode.")
             if '{log_content}' not in custom_prompt:
+                logger.error("Custom prompt is missing the `{log_content}` placeholder.")
                 return False, "Error: The custom prompt must include the placeholder `{log_content}`."
             final_prompt = custom_prompt.format(log_content=log_content)
         else:
+            logger.debug("Using simple prompt mode.")
             final_prompt = DEFAULT_AI_PROMPT.format(
                 custom_keywords=custom_keywords or "(không có)",
                 log_content=log_content
             )
         
+        logger.debug(f"Final prompt for standardization:\n{final_prompt}")
         response = model.generate_content(final_prompt)
         clean_response = response.text.strip().replace('```', '')
+        logger.info("Log standardization successful.")
         return True, clean_response
 
     except Exception as e:
+        logger.error(f"An error occurred with the AI service: {e}", exc_info=True)
         return False, f"An error occurred with the AI service: {str(e)}"
 
 class StandardizeLogThread(QThread):

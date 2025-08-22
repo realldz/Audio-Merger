@@ -10,7 +10,7 @@ def setup_logging(log_settings: LogSettings):
         os.makedirs(LOG_DIR)
 
     # Get the root logger for the application
-    logger = logging.getLogger("AudioMerger")
+    logger = logging.getLogger() # Configure the root logger
     logger.handlers.clear() # Clear any existing handlers
 
     # Set the logging level
@@ -38,6 +38,3 @@ def setup_logging(log_settings: LogSettings):
         stream_handler = logging.StreamHandler()
         stream_handler.setFormatter(formatter)
         logger.addHandler(stream_handler)
-
-    # Prevent log messages from being propagated to the root logger
-    logger.propagate = False
